@@ -5,6 +5,7 @@ import (
 	"jiratool/jiratool"
 	"jiratool/lib"
 	"net/url"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -58,6 +59,7 @@ func SetttingWidget(w fyne.Window) fyne.Window {
 	epicList, _ := jiratool.GetEpicList(client)
 	sprintList, _ := jiratool.GetSprintList(client)
 	sprintList = append([]jiratool.Sprint{{Name: "空", Id: 0}}, sprintList...)
+	fixversionList, _ := jiratool.GetUnreleasedVersions(client)
 
 	// 建立下拉式選單 (EPIC)
 	selectorEpic := widget.NewSelect(
@@ -77,20 +79,27 @@ func SetttingWidget(w fyne.Window) fyne.Window {
 	}
 	selectorSprint.SetSelected(defaultSprit)
 
+	// 建立下拉選單 (fixversion)
+	selectorVersion := widget.NewSelect(
+		getVerionNames(fixversionList),
+		selectVersionIssue(fixversionList, &issueInfo.VersionId),
+	)
+	selectorVersion.SetSelected(setDefaultVersion(fixversionList))
+
 	// 創建產生按鈕
 	btnCreateRelated := widget.NewButton("創建關聯單", CreateRelatedIssue(errorLabel, showIssueUrl, entry, hyperlink, &issueInfo))
 	btnCreate := widget.NewButton("創單", CreateIssue(errorLabel, showIssueUrl, entry, hyperlink, &issueInfo))
 	btnSubCreate := widget.NewButton("創子單", CreateSubIssue(errorLabel, showIssueUrl, entry, hyperlink, &issueInfo))
 	// btnConfigReloead := widget.NewButton("Reload設定", func() {})
 
-	btnLayout := fyne.NewContainerWithLayout(
+	btnLayout := container.New(
 		layout.NewGridLayout(5),
 		btnCreateRelated,
 		btnCreate,
 		btnSubCreate,
 	)
 
-	selectorLayout := fyne.NewContainerWithLayout(
+	selectorLayout := container.New(
 		layout.NewGridLayout(2),
 		selectorEpic,
 		selectorSprint,
@@ -102,6 +111,7 @@ func SetttingWidget(w fyne.Window) fyne.Window {
 		btnLayout,
 		errorLabel,
 		selectorLayout,
+		selectorVersion,
 		hyperlink,
 	))
 
@@ -148,6 +158,36 @@ func selectSprintIssue(EpicIssue []jiratool.Sprint, SprintId *int) func(string) 
 	}
 }
 
+func getVerionNames(versions []jiratool.Version) []string {
+	s := make([]string, len(versions))
+	for i, v := range versions {
+		s[i] = v.Name
+	}
+	s = append([]string{""}, s...)
+	return s
+}
+
+func selectVersionIssue(versions []jiratool.Version, verionId *string) func(string) {
+	return func(s string) {
+		for _, v := range versions {
+			if s == v.Name {
+				*verionId = v.Id
+			}
+			return
+		}
+		return
+	}
+}
+
+func setDefaultVersion(versions []jiratool.Version) string {
+	for _, v := range versions {
+		if strings.HasPrefix(v.Name, "xunya") {
+			return v.Name
+		}
+	}
+	return ""
+}
+
 // 創建關聯單
 func CreateRelatedIssue(
 	errorLabel *widget.Label,
@@ -167,7 +207,7 @@ func CreateRelatedIssue(
 
 		releatedIssue = entry.Text
 
-		str, err := jiratool.GeneratorRelatedIssue(client, releatedIssue, issueInfo.EpicKey, issueInfo.SprintId) // 創關聯單
+		str, err := jiratool.GeneratorRelatedIssue(client, releatedIssue, issueInfo) // 創關聯單
 		if err != nil {
 			errorLabel.SetText(`創立錯誤!! err:` + err.Error())
 		} else {
@@ -196,7 +236,7 @@ func CreateIssue(
 			return
 		}
 
-		str, err := jiratool.GeneratorIssue(client, issueInfo.EpicKey, issueInfo.SprintId) // 創關聯單
+		str, err := jiratool.GeneratorIssue(client, issueInfo) // 創關聯單
 		if err != nil {
 			errorLabel.SetText(`創立錯誤!! err:` + err.Error())
 		} else {
@@ -225,7 +265,7 @@ func CreateSubIssue(
 			return
 		}
 
-		str, err := jiratool.GeneratorSubIssue(client, entry.Text, issueInfo.EpicKey, issueInfo.SprintId) // 創關聯單
+		str, err := jiratool.GeneratorSubIssue(client, entry.Text, issueInfo) // 創關聯單
 		if err != nil {
 			errorLabel.SetText(`創立錯誤!! err:` + err.Error())
 		} else {

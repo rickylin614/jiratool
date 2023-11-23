@@ -21,7 +21,7 @@ func GetPerentSummrayIfStory(client *jira.Client, issue *jira.Issue) (string, er
 			return "", err
 		}
 		// 檢查父單是否為 Story 類型
-		if parentIssue.Fields.Type.Name == ISSUE_TYPE_STORY && issue.Fields.Type.Name == ISSUE_TYPE_TASK {
+		if parentIssue.Fields.Type.Name == ISSUE_TYPE_STORY && issue.Fields.Type.Name == ISSUE_TYPE_SUB_TASK {
 			// 返回父單的 Summary
 			return parentIssue.Fields.Summary, nil
 		}

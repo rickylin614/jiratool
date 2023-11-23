@@ -1,6 +1,6 @@
 module jiratool
 
-go 1.18
+go 1.21
 
 require (
 	fyne.io/fyne/v2 v2.3.1

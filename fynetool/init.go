@@ -12,9 +12,6 @@ import (
 var initError error
 var client *jira.Client
 
-var EpicIssue []jira.Issue = make([]jira.Issue, 0)
-var Springs []jiratool.Sprint = make([]jiratool.Sprint, 0)
-
 func InitDataList() {
 	if conf.GetConfig().UserName == "" || conf.GetConfig().Pwd == "" || conf.GetConfig().Project == "" || conf.GetConfig().Jiraurl == "" {
 		initError = errors.New("設定檔案讀取失敗, 請設定後重新啟動程序")
@@ -34,14 +31,6 @@ func InitDataList() {
 	if err != nil {
 		fmt.Println("jira new client error", err)
 		initError = err
-	}
-	if initError == nil {
-		// 更新epic列表
-		epicList, _ := jiratool.GetEpicList(client)
-		EpicIssue = epicList
-		// 更新sprint列表
-		sprintList, _ := jiratool.GetSprintList(client)
-		Springs = sprintList
 	}
 
 }

@@ -62,8 +62,33 @@ func GetSprintList(client *jira.Client) ([]Sprint, error) {
 	return nil, errors.New("not found any Sprint")
 }
 
+// 取得fix version列表
+func GetUnreleasedVersions(client *jira.Client) ([]Version, error) {
+	url := fmt.Sprintf("%s://%s/rest/api/2/project/%s/versions", client.GetBaseURL().Scheme, client.GetBaseURL().Host, project)
+
+	resp, err := NewRequest(client, url)
+	if err != nil {
+		return nil, err
+	}
+
+	var versions []Version
+	err = json.Unmarshal(resp, &versions)
+	if err != nil {
+		return nil, err
+	}
+
+	var unreleasedVersions []Version
+	for _, version := range versions {
+		if !version.Released {
+			unreleasedVersions = append(unreleasedVersions, version)
+		}
+	}
+
+	return unreleasedVersions, nil
+}
+
 // 創建Issue
-func CreateNewIssue(client *jira.Client, summary, parentKey string) (*jira.Issue, error) {
+func CreateNewIssue(client *jira.Client, summary, parentKey, fixverionId string) (*jira.Issue, error) {
 	var parent *jira.Parent
 	var issueType string = ISSUE_TYPE_TASK
 	var isSub bool
@@ -73,6 +98,12 @@ func CreateNewIssue(client *jira.Client, summary, parentKey string) (*jira.Issue
 		}
 		issueType = ISSUE_TYPE_SUB_TASK
 		isSub = true
+	}
+	fixversion := make([]*jira.FixVersion, 0)
+	if fixverionId != "" {
+		fixversion = []*jira.FixVersion{
+			{ID: fixverionId},
+		}
 	}
 
 	issue := jira.Issue{
@@ -92,7 +123,8 @@ func CreateNewIssue(client *jira.Client, summary, parentKey string) (*jira.Issue
 			Components: []*jira.Component{
 				{Name: "xunya"},
 			},
-			Summary: summary,
+			Summary:     summary,
+			FixVersions: fixversion,
 		},
 	}
 
@@ -104,7 +136,7 @@ func CreateNewIssue(client *jira.Client, summary, parentKey string) (*jira.Issue
 	return i, nil
 }
 
-func GeneratorRelatedIssue(client *jira.Client, relatedIssueKey, epicKey string, sprintId int) (*string, error) {
+func GeneratorRelatedIssue(client *jira.Client, relatedIssueKey string, issueinfo *IssueInfo) (*string, error) {
 	if relatedIssueKey == "" {
 		return nil, errors.New("未設定關聯單")
 	}
@@ -119,39 +151,39 @@ func GeneratorRelatedIssue(client *jira.Client, relatedIssueKey, epicKey string,
 		fmt.Printf("jira get Perent issue %+v client error: %s\n", pmIssue, err)
 		return nil, err
 	}
-	issue, err := CreateNewIssue(client, summary, "")
+	issue, err := CreateNewIssue(client, summary, "", issueinfo.VersionId)
 	if err != nil {
 		return nil, err
 	}
-	AddRelated(client, issue.Key, relatedIssueKey) // 添加關聯單
-	UpdateEpic(client, issue.Key, epicKey)         // 添加Epic
-	UpdateSprint(client, issue.Key, sprintId)      // 添加Sprint
-	UpdateEstTime(client, issue.Key, 1)            // 添加資深人員估時時間, 默認1
+	AddRelated(client, issue.Key, relatedIssueKey)      // 添加關聯單
+	UpdateEpic(client, issue.Key, issueinfo.EpicKey)    // 添加Epic
+	UpdateSprint(client, issue.Key, issueinfo.SprintId) // 添加Sprint
+	UpdateEstTime(client, issue.Key, 4)                 // 添加資深人員估時時間, 默認4
 
 	return &issue.Key, nil
 }
 
-func GeneratorIssue(client *jira.Client, epicKey string, sprintId int) (*string, error) {
-	issue, err := CreateNewIssue(client, "Empty Content", "")
+func GeneratorIssue(client *jira.Client, issueinfo *IssueInfo) (*string, error) {
+	issue, err := CreateNewIssue(client, "Empty Content", "", issueinfo.VersionId)
 	if err != nil {
 		return nil, err
 	}
-	UpdateEpic(client, issue.Key, epicKey)    // 添加Epic
-	UpdateSprint(client, issue.Key, sprintId) // 添加Sprint
-	UpdateEstTime(client, issue.Key, 1)       // 添加資深人員估時時間, 默認1
+	UpdateEpic(client, issue.Key, issueinfo.EpicKey)    // 添加Epic
+	UpdateSprint(client, issue.Key, issueinfo.SprintId) // 添加Sprint
+	UpdateEstTime(client, issue.Key, 4)                 // 添加資深人員估時時間, 默認4
 	return &issue.Key, nil
 }
 
-func GeneratorSubIssue(client *jira.Client, SubIssueKey string, epicKey string, sprintId int) (*string, error) {
+func GeneratorSubIssue(client *jira.Client, SubIssueKey string, issueinfo *IssueInfo) (*string, error) {
 	if SubIssueKey == "" {
 		return nil, errors.New("未設定Parent Issue")
 	}
-	issue, err := CreateNewIssue(client, "SubTask", SubIssueKey)
+	issue, err := CreateNewIssue(client, "SubTask", SubIssueKey, issueinfo.VersionId)
 	if err != nil {
 		return nil, err
 	}
-	UpdateEpic(client, issue.Key, epicKey)    // 添加Epic
-	UpdateSprint(client, issue.Key, sprintId) // 添加Sprint
-	UpdateEstTime(client, issue.Key, 1)       // 添加資深人員估時時間, 默認1
+	UpdateEpic(client, issue.Key, issueinfo.EpicKey)    // 添加Epic
+	UpdateSprint(client, issue.Key, issueinfo.SprintId) // 添加Sprint
+	UpdateEstTime(client, issue.Key, 2)                 // 添加資深人員估時時間, 默認2
 	return &issue.Key, nil
 }

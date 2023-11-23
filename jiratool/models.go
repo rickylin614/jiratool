@@ -9,7 +9,15 @@ type Sprint struct {
 }
 
 type IssueInfo struct {
-	SprintId int    `json:"sprint_id"`
-	IssueId  int    `json:"issue_id"`
-	EpicKey  string `json:"epic_key"`
+	SprintId  int    `json:"sprint_id"`
+	IssueId   int    `json:"issue_id"`
+	EpicKey   string `json:"epic_key"`
+	VersionId string `json:"version_id"`
+}
+
+type Version struct {
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Released    bool   `json:"released"`
+	ReleaseDate string `json:"releaseDate,omitempty"`
 }
