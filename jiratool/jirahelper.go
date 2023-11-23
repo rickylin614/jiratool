@@ -25,47 +25,6 @@ func NewRequest(client *jira.Client, url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-// 更新Sprint
-func UpdateSprint(client *jira.Client, issueKey string, sprintId int) error {
-	if sprintId == 0 {
-		return nil
-	}
-	_, err := client.Issue.UpdateIssue(issueKey, map[string]any{
-		"fields": map[string]any{
-			SprintFieldLabel: sprintId, // 修改sprint
-		},
-	})
-	return err
-}
-
-// 更新Epic
-func UpdateEpic(client *jira.Client, issueKey, epicIssueKey string) error {
-	_, err := client.Issue.UpdateIssue(issueKey, map[string]any{
-		"fields": map[string]any{
-			EpicFieldLabel: epicIssueKey, // 修改epic
-		},
-	})
-	return err
-}
-
-// 添加關聯單
-func AddRelated(client *jira.Client, createdKey, ReleatdKey string) error {
-	if ReleatdKey != "" {
-		_, err := client.Issue.AddLink(&jira.IssueLink{
-			Type: jira.IssueLinkType{
-				Name: "Relates",
-			},
-			InwardIssue:  &jira.Issue{Key: createdKey},
-			OutwardIssue: &jira.Issue{Key: ReleatdKey},
-		})
-		if err != nil {
-			fmt.Println("jira add link err:", err)
-			return err
-		}
-	}
-	return nil
-}
-
 // 取得Epic列表
 func GetEpicList(client *jira.Client) ([]jira.Issue, error) {
 	opt := &jira.SearchOptions{
@@ -155,13 +114,19 @@ func GeneratorRelatedIssue(client *jira.Client, relatedIssueKey, epicKey string,
 		fmt.Printf("jira get issue %+v client error: %s\n", pmIssue, err)
 		return nil, err
 	}
-	issue, err := CreateNewIssue(client, pmIssue.Fields.Summary, "")
+	summary, err := GetPerentSummrayIfStory(client, pmIssue)
+	if err != nil {
+		fmt.Printf("jira get Perent issue %+v client error: %s\n", pmIssue, err)
+		return nil, err
+	}
+	issue, err := CreateNewIssue(client, summary, "")
 	if err != nil {
 		return nil, err
 	}
 	AddRelated(client, issue.Key, relatedIssueKey) // 添加關聯單
 	UpdateEpic(client, issue.Key, epicKey)         // 添加Epic
 	UpdateSprint(client, issue.Key, sprintId)      // 添加Sprint
+	UpdateEstTime(client, issue.Key, 1)            // 添加資深人員估時時間, 默認1
 
 	return &issue.Key, nil
 }
@@ -173,6 +138,7 @@ func GeneratorIssue(client *jira.Client, epicKey string, sprintId int) (*string,
 	}
 	UpdateEpic(client, issue.Key, epicKey)    // 添加Epic
 	UpdateSprint(client, issue.Key, sprintId) // 添加Sprint
+	UpdateEstTime(client, issue.Key, 1)       // 添加資深人員估時時間, 默認1
 	return &issue.Key, nil
 }
 
@@ -186,5 +152,6 @@ func GeneratorSubIssue(client *jira.Client, SubIssueKey string, epicKey string, 
 	}
 	UpdateEpic(client, issue.Key, epicKey)    // 添加Epic
 	UpdateSprint(client, issue.Key, sprintId) // 添加Sprint
+	UpdateEstTime(client, issue.Key, 1)       // 添加資深人員估時時間, 默認1
 	return &issue.Key, nil
 }

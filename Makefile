@@ -9,9 +9,11 @@ mac:
 windows:
 	fyne-cross windows
 
+
 # 將設定檔移至編譯好得windows路徑
+.PHONY: cp
 cp:
-	copy ./conf.yml ./fyne-cross/bin/windows-amd64
+	copy .\conf.yml .\fyne-cross\bin\windows-amd64
 
 # 將設定檔移至編譯好得mac路徑
 cp_mac:

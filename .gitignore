@@ -1,0 +1,6 @@
+# build output folder
+out/
+*.exe
+.vscode/
+.idea/
+.DS_Store
