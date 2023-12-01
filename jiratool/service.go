@@ -11,22 +11,22 @@ func GetIssueByKey(client *jira.Client, key string) (*jira.Issue, error) {
 	return issue, err
 }
 
-func GetPerentSummrayIfStory(client *jira.Client, issue *jira.Issue) (string, error) {
+func GetPerentSummrayIfStory(client *jira.Client, issue *jira.Issue) (summary string, desc string, err error) {
 	// 檢查 Issue 是否有父單
 	if issue.Fields.Parent != nil {
 		parentKey := issue.Fields.Parent.Key
 		// 獲取父單的詳細信息
 		parentIssue, err := GetIssueByKey(client, parentKey)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		// 檢查父單是否為 Story 類型
 		if parentIssue.Fields.Type.Name == ISSUE_TYPE_STORY && issue.Fields.Type.Name == ISSUE_TYPE_SUB_TASK {
 			// 返回父單的 Summary
-			return parentIssue.Fields.Summary, nil
+			return parentIssue.Fields.Summary, parentIssue.Fields.Description, nil
 		}
 	}
-	return issue.Fields.Summary, nil
+	return issue.Fields.Summary, issue.Fields.Description, nil
 }
 
 // 添加關聯單

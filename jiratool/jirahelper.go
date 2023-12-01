@@ -88,7 +88,7 @@ func GetUnreleasedVersions(client *jira.Client) ([]Version, error) {
 }
 
 // 創建Issue
-func CreateNewIssue(client *jira.Client, summary, parentKey, fixverionId string) (*jira.Issue, error) {
+func CreateNewIssue(client *jira.Client, summary, desc, parentKey, fixverionId string) (*jira.Issue, error) {
 	var parent *jira.Parent
 	var issueType string = ISSUE_TYPE_TASK
 	var isSub bool
@@ -124,6 +124,7 @@ func CreateNewIssue(client *jira.Client, summary, parentKey, fixverionId string)
 				{Name: "xunya"},
 			},
 			Summary:     summary,
+			Description: desc,
 			FixVersions: fixversion,
 		},
 	}
@@ -146,12 +147,12 @@ func GeneratorRelatedIssue(client *jira.Client, relatedIssueKey string, issueinf
 		fmt.Printf("jira get issue %+v client error: %s\n", pmIssue, err)
 		return nil, err
 	}
-	summary, err := GetPerentSummrayIfStory(client, pmIssue)
+	summary, desc, err := GetPerentSummrayIfStory(client, pmIssue)
 	if err != nil {
 		fmt.Printf("jira get Perent issue %+v client error: %s\n", pmIssue, err)
 		return nil, err
 	}
-	issue, err := CreateNewIssue(client, summary, "", issueinfo.VersionId)
+	issue, err := CreateNewIssue(client, summary, desc, "", issueinfo.VersionId)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +165,7 @@ func GeneratorRelatedIssue(client *jira.Client, relatedIssueKey string, issueinf
 }
 
 func GeneratorIssue(client *jira.Client, issueinfo *IssueInfo) (*string, error) {
-	issue, err := CreateNewIssue(client, "Empty Content", "", issueinfo.VersionId)
+	issue, err := CreateNewIssue(client, "Empty Content", "", "", issueinfo.VersionId)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +179,7 @@ func GeneratorSubIssue(client *jira.Client, SubIssueKey string, issueinfo *Issue
 	if SubIssueKey == "" {
 		return nil, errors.New("未設定Parent Issue")
 	}
-	issue, err := CreateNewIssue(client, "SubTask", SubIssueKey, issueinfo.VersionId)
+	issue, err := CreateNewIssue(client, "SubTask", "", SubIssueKey, issueinfo.VersionId)
 	if err != nil {
 		return nil, err
 	}
