@@ -172,8 +172,8 @@ func selectVersionIssue(versions []jiratool.Version, verionId *string) func(stri
 		for _, v := range versions {
 			if s == v.Name {
 				*verionId = v.Id
+				return
 			}
-			return
 		}
 		return
 	}

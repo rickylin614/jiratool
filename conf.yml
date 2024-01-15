@@ -1,0 +1,6 @@
+account: ""
+password: ""
+jiraurl: "https://example/"
+project: "BE1"
+label: "BEPFT_P_XUNYA"
+component: "example"
