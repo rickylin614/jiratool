@@ -3,9 +3,10 @@ default:
 
 # 編譯mac執行檔
 mac:
-	fyne-cross darwin -app-id="com.example.myapp"
+	fyne-cross darwin -app-id="com.example.myapp" -image="fyneio/fyne-cross-images:darwin"
 
 # 編譯windows執行檔
+# go install github.com/fyne-io/fyne-cross@v1.3.0
 windows:
 	fyne-cross windows
 	copy .\conf.yml .\fyne-cross\bin\windows-amd64

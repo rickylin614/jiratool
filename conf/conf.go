@@ -12,12 +12,10 @@ func ConfigInit() {
 	viper.ReadInConfig() // ignore error
 
 	baseConfig = &BaseConfig{
-		UserName:  viper.GetString("account"),
-		Pwd:       viper.GetString("password"),
-		Jiraurl:   viper.GetString("jiraurl"),
-		Project:   viper.GetString("project"),
-		Label:     viper.GetString("label"),
-		Component: viper.GetString("component"),
+		AdminPath:     viper.GetString("admin_path"),
+		AdminFileName: viper.GetString("admin_filename"),
+		WebPath:       viper.GetString("source_path"),
+		WebFileName:   viper.GetString("source_filename"),
 	}
 
 }

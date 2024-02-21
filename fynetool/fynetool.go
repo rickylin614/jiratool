@@ -1,21 +1,25 @@
 package fynetool
 
 import (
+	"errors"
+	"fmt"
+	"io"
 	"jiratool/conf"
-	"jiratool/jiratool"
+	"jiratool/gittool"
 	"jiratool/lib"
-	"net/url"
+	"os"
 	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
-	"github.com/andygrunwald/go-jira"
 )
 
-const title = "關聯單產生器@ricky in 2023"
+const title = "Git工具@ricky in 2024/02"
+const admintxt = "temp1.txt"
+const sourcetxt = "temp2.txt"
 
 // 初始化視窗
 func InitFyneApp() fyne.Window {
@@ -27,253 +31,233 @@ func InitFyneApp() fyne.Window {
 	w := a.NewWindow(title)
 
 	// 設定寬高
-	w.Resize(fyne.NewSize(600, 400))
+	w.Resize(fyne.NewSize(1024, 768))
 
 	return w
 }
 
 // 產生各個元件
 func SetttingWidget(w fyne.Window) fyne.Window {
-	// 初始化要設定的Issue參數
-	issueInfo := jiratool.IssueInfo{
-		EpicKey: "BE1-191",
-	}
 
-	// 輸入框設定
-	entry := widget.NewEntry()
-	entry.SetPlaceHolder("請輸入欲關聯的單號:")
-	entry.Resize(fyne.Size{Width: 1000, Height: 5000})
+	input1 := widget.NewEntry()
+	input2 := widget.NewEntry()
 
-	// 錯誤標籤
-	errorLabel := widget.NewLabel("")
+	inputCon1 := container.NewHScroll(input1)
+	inputCon1.SetMinSize(fyne.NewSize(800, 20))
+	inputCon2 := container.NewHScroll(input2)
+	inputCon2.SetMinSize(fyne.NewSize(800, 20))
+	loadPath(input1, admintxt)
+	loadPath(input2, sourcetxt)
 
-	// 顯示完成的Issue
-	showIssueUrl := widget.NewEntry()
-	showIssueUrl.Disable()
+	fileSelect1 := newButtonWidget(w, input1, admintxt)
+	fileSelect2 := newButtonWidget(w, input2, sourcetxt)
 
-	// 連結
-	hyperlink := widget.NewHyperlink("", nil)
-	hyperlink.Hidden = true
-	hyperlink.Resize(fyne.NewSize(3, 1))
+	clearButton1 := widget.NewButton("Clear", func() {
+		input1.SetText("")
+		savePath(input1.Text, admintxt)
+	})
+	clearButton2 := widget.NewButton("Clear", func() {
+		input2.SetText("")
+		savePath(input2.Text, sourcetxt)
+	})
 
-	epicList, _ := jiratool.GetEpicList(client)
-	sprintList, _ := jiratool.GetSprintList(client)
-	sprintList = append([]jiratool.Sprint{{Name: "空", Id: 0}}, sprintList...)
-	fixversionList, _ := jiratool.GetUnreleasedVersions(client)
+	progressBar := widget.NewProgressBarInfinite()
+	progressBar.Hide()
+	progressBarCon := container.NewHScroll(progressBar)
+	progressBarCon.SetMinSize(fyne.NewSize(1000, 20))
 
-	// 建立下拉式選單 (EPIC)
-	selectorEpic := widget.NewSelect(
-		getEpicIssueNames(epicList),
-		selectEpicIssue(epicList, &issueInfo.EpicKey),
-	)
-	selectorEpic.SetSelected("平台-彩票")
+	errLabel := widget.NewLabel("")
+	errLabel.Hidden = true
 
-	// 建立下拉式選單 (Sprint)
-	selectorSprint := widget.NewSelect(
-		getSprintNames(sprintList),
-		selectSprintIssue(sprintList, &issueInfo.SprintId),
-	)
-	defaultSprit := ""
-	if len(sprintList) > 0 {
-		defaultSprit = sprintList[0].Name
-	}
-	selectorSprint.SetSelected(defaultSprit)
-
-	// 建立下拉選單 (fixversion)
-	selectorVersion := widget.NewSelect(
-		getVerionNames(fixversionList),
-		selectVersionIssue(fixversionList, &issueInfo.VersionId),
-	)
-	selectorVersion.SetSelected(setDefaultVersion(fixversionList))
-
-	// 創建產生按鈕
-	btnCreateRelated := widget.NewButton("創建關聯單", CreateRelatedIssue(errorLabel, showIssueUrl, entry, hyperlink, &issueInfo))
-	btnCreate := widget.NewButton("創單", CreateIssue(errorLabel, showIssueUrl, entry, hyperlink, &issueInfo))
-	btnSubCreate := widget.NewButton("創子單", CreateSubIssue(errorLabel, showIssueUrl, entry, hyperlink, &issueInfo))
-	// btnConfigReloead := widget.NewButton("Reload設定", func() {})
-
-	btnLayout := container.New(
-		layout.NewGridLayout(5),
-		btnCreateRelated,
-		btnCreate,
-		btnSubCreate,
-	)
-
-	selectorLayout := container.New(
-		layout.NewGridLayout(2),
-		selectorEpic,
-		selectorSprint,
-	)
+	actionButton1 := widget.NewButton("admin update", func() {
+		progressBar.Show()
+		defer progressBar.Hide()
+		err := mergeCsv(input1.Text, conf.GetConfig().AdminPath, conf.GetConfig().AdminFileName)
+		if err == nil {
+			errLabel.Hidden = true
+		} else {
+			errLabel.SetText("執行失敗或檔案沒有更新!!")
+			errLabel.Hidden = false
+		}
+	})
+	actionButton2 := widget.NewButton("source update", func() {
+		progressBar.Show()
+		defer progressBar.Hide()
+		err := mergeCsv(input2.Text, conf.GetConfig().WebPath, conf.GetConfig().WebFileName)
+		if err == nil {
+			errLabel.Hidden = true
+		} else {
+			errLabel.SetText("執行失敗或檔案沒有更新!!")
+			errLabel.Hidden = false
+		}
+	})
 
 	w.SetContent(container.NewVBox(
-		widget.NewLabel("請輸入欲關聯的單號"),
-		entry,
-		btnLayout,
-		errorLabel,
-		selectorLayout,
-		selectorVersion,
-		hyperlink,
+		container.NewHBox(widget.NewLabel(" admin"),
+			fileSelect1,
+			inputCon1,
+			clearButton1,
+		),
+		container.NewHBox(widget.NewLabel("source"),
+			fileSelect2,
+			inputCon2,
+			clearButton2,
+		),
+		container.NewHBox(
+			actionButton1, actionButton2,
+		),
+		progressBarCon,
+		widget.NewLabel("備註: 需裝過git並且指令可正常Git push專案"),
+		errLabel,
 	))
 
 	return w
 }
 
-func getEpicIssueNames(EpicIssue []jira.Issue) []string {
-	s := make([]string, len(EpicIssue))
-	for i, v := range EpicIssue {
-		s[i] = v.Fields.Summary
-	}
-	return s
-}
-
-func selectEpicIssue(EpicIssue []jira.Issue, EpicIssueKey *string) func(string) {
-	return func(s string) {
-		for _, v := range EpicIssue {
-			if s == v.Fields.Summary {
-				*EpicIssueKey = v.Key
-				return
+func newButtonWidget(w fyne.Window, input *widget.Entry, saveTxt string) *widget.Button {
+	return widget.NewButton("Select File", func() {
+		fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+			if err == nil && reader != nil {
+				input.SetText(reader.URI().Path())
+				savePath(input.Text, saveTxt)
 			}
+		}, w)
+
+		filter := &customFileFilter{extensions: []string{".csv"}}
+		fd.SetFilter(filter)
+
+		fd.Resize(fyne.NewSize(800, 600))
+		fd.Show()
+	})
+}
+
+type customFileFilter struct {
+	extensions []string
+}
+
+func (cff *customFileFilter) Matches(uri fyne.URI) bool {
+	// Exclude hidden files and filter by extensions
+	return !strings.HasPrefix(uri.Name(), ".") && cff.hasValidExtension(uri)
+}
+
+func (cff *customFileFilter) hasValidExtension(uri fyne.URI) bool {
+	// Check if the file has a valid extension
+	for _, ext := range cff.extensions {
+		if strings.HasSuffix(uri.Name(), ext) {
+			return true
 		}
-		*EpicIssueKey = ""
 	}
+	return false
 }
 
-func getSprintNames(EpicIssue []jiratool.Sprint) []string {
-	s := make([]string, len(EpicIssue))
-	for i, v := range EpicIssue {
-		s[i] = v.Name
+func savePath(path string, filename string) {
+	file, err := os.Create(filename)
+	if err != nil {
+		return
 	}
-	return s
-}
+	defer file.Close()
 
-func selectSprintIssue(EpicIssue []jiratool.Sprint, SprintId *int) func(string) {
-	return func(s string) {
-		for _, v := range EpicIssue {
-			if s == v.Name {
-				*SprintId = v.Id
-				return
-			}
-		}
-		*SprintId = 0
-	}
-}
-
-func getVerionNames(versions []jiratool.Version) []string {
-	s := make([]string, len(versions))
-	for i, v := range versions {
-		s[i] = v.Name
-	}
-	s = append([]string{""}, s...)
-	return s
-}
-
-func selectVersionIssue(versions []jiratool.Version, verionId *string) func(string) {
-	return func(s string) {
-		for _, v := range versions {
-			if s == v.Name {
-				*verionId = v.Id
-				return
-			}
-		}
+	_, err = file.WriteString(path)
+	if err != nil {
 		return
 	}
 }
 
-func setDefaultVersion(versions []jiratool.Version) string {
-	for _, v := range versions {
-		if strings.HasPrefix(v.Name, "xunya") {
-			return v.Name
-		}
+func loadPath(entry *widget.Entry, filename string) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return
 	}
-	return ""
+	defer file.Close()
+
+	buf := make([]byte, 1024)
+	n, _ := file.Read(buf)
+	entry.SetText(string(buf[:n]))
 }
 
-// 創建關聯單
-func CreateRelatedIssue(
-	errorLabel *widget.Label,
-	showIssueUrl *widget.Entry,
-	entry *widget.Entry,
-	hyperlink *widget.Hyperlink,
-	issueInfo *jiratool.IssueInfo) func() {
-
-	return func() {
-		errorLabel.SetText("")
-		showIssueUrl.SetText(``)
-		releatedIssue := ""
-		if initError != nil {
-			errorLabel.SetText(initError.Error())
-			return
+func mergeCsv(replaceFile, filePath, fileName string) error {
+	var repoName string
+	var err error
+	defer func() {
+		if repoName != "" {
+			checkAndRemoveDirectory(repoName)
 		}
+	}()
 
-		releatedIssue = entry.Text
+	if replaceFile == "" || filePath == "" || fileName == "" {
+		return errors.New("執行失敗!!")
+	}
 
-		str, err := jiratool.GeneratorRelatedIssue(client, releatedIssue, issueInfo) // 創關聯單
-		if err != nil {
-			errorLabel.SetText(`創立錯誤!! err:` + err.Error())
-		} else {
-			errorLabel.SetText(`創單成功 單號:` + *str)
-			hyperlink.URL, _ = url.Parse(conf.GetConfig().Jiraurl + `browse/` + *str)
-			hyperlink.SetText(*str)
-			hyperlink.Hidden = false
-		}
+	if repoName, err = gittool.GitClone(filePath); err != nil {
+		return err
+	}
 
+	if err = copyFile(replaceFile, fmt.Sprintf("./%s/%s", repoName, fileName)); err != nil {
+		return err
+	}
+
+	if err = gittool.GitAdd(repoName, fileName); err != nil {
+		return err
+	}
+
+	if err = gittool.GitCommitAndPush(repoName); err != nil {
+		return err
+	}
+
+	if err = gittool.AddTag(repoName); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func showBusyIndicator(progressBar *widget.ProgressBarInfinite) {
+	progressBar.Show()
+}
+
+func hideBusyIndicator(progressBar *widget.ProgressBarInfinite) {
+	progressBar.Hide()
+}
+
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		fmt.Println("Error opening source file:", err)
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		fmt.Println("Error creating destination file:", err)
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	if err != nil {
+		fmt.Println("Error copying file:", err)
+		return err
+	}
+	return nil
+}
+
+func checkAndRemoveDirectory(path string) error {
+	if directoryExists(path) {
+		return removeDirectory(path)
+	} else {
+		return fmt.Errorf("Directory '%s' does not exist", path)
 	}
 }
 
-// 創單
-func CreateIssue(
-	errorLabel *widget.Label,
-	showIssueUrl *widget.Entry,
-	entry *widget.Entry,
-	hyperlink *widget.Hyperlink,
-	issueInfo *jiratool.IssueInfo) func() {
-
-	return func() {
-		errorLabel.SetText("")
-		showIssueUrl.SetText(``)
-		if initError != nil {
-			errorLabel.SetText(initError.Error())
-			return
-		}
-
-		str, err := jiratool.GeneratorIssue(client, issueInfo) // 創關聯單
-		if err != nil {
-			errorLabel.SetText(`創立錯誤!! err:` + err.Error())
-		} else {
-			errorLabel.SetText(`創單成功 單號:` + *str)
-			hyperlink.URL, _ = url.Parse(conf.GetConfig().Jiraurl + `browse/` + *str)
-			hyperlink.SetText(*str)
-			hyperlink.Hidden = false
-		}
-
+func directoryExists(path string) bool {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false
 	}
+	return true
 }
 
-// 創建子單
-func CreateSubIssue(
-	errorLabel *widget.Label,
-	showIssueUrl *widget.Entry,
-	entry *widget.Entry,
-	hyperlink *widget.Hyperlink,
-	issueInfo *jiratool.IssueInfo) func() {
-
-	return func() {
-		errorLabel.SetText("")
-		showIssueUrl.SetText(``)
-		if initError != nil {
-			errorLabel.SetText(initError.Error())
-			return
-		}
-
-		str, err := jiratool.GeneratorSubIssue(client, entry.Text, issueInfo) // 創關聯單
-		if err != nil {
-			errorLabel.SetText(`創立錯誤!! err:` + err.Error())
-		} else {
-			errorLabel.SetText(`創單成功 單號:` + *str)
-			hyperlink.URL, _ = url.Parse(conf.GetConfig().Jiraurl + `browse/` + *str)
-			hyperlink.SetText(*str)
-			hyperlink.Hidden = false
-		}
-
-	}
+func removeDirectory(path string) error {
+	return os.RemoveAll(path)
 }

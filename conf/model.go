@@ -1,10 +1,8 @@
 package conf
 
 type BaseConfig struct {
-	UserName  string `json:"user_name"`
-	Pwd       string `json:"pwd"`
-	Jiraurl   string `json:"jiraurl"`
-	Project   string `json:"project"`
-	Label     string `json:"label"`
-	Component string `json:"component"`
+	AdminPath     string `yaml:"admin_path"`
+	AdminFileName string `yaml:"admin_filename"`
+	WebPath       string `yaml:"web_path"`
+	WebFileName   string `yaml:"source_filename"`
 }
